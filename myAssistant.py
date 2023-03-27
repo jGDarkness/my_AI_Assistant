@@ -6,6 +6,18 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF)
 from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
 import sys
+#from transformers import GPT2Tokenizer, GPT2LMHeadModel
+
+# OpenAI API Configuration #################################################################################################################################################
+myOpenAIKey = os.environ.get("OPENAI_API_KEY")
+myOpenAIOrg = os.environ.get("OPENAI_API_ORG")
+
+if myOpenAIKey is None:
+   raise ValueError("OPENAI_API_KEY is not set in environment variables.")
+else: 
+   openai.api_key = myOpenAIKey
+   openai.organization = myOpenAIOrg
+# END OpenAI API Configuration #############################################################################################################################################   
 
 class CustomButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -103,7 +115,6 @@ class MainWindow(QMainWindow):
         """)
         maximize_button.clicked.connect(self.toggle_maximize)
         banner_layout.addWidget(maximize_button, alignment=Qt.AlignRight)
-        #maximize_button.move(655, 10)
 
         # Banner Red 'Close' button
         close_button = QPushButton("")
@@ -118,7 +129,6 @@ class MainWindow(QMainWindow):
             }
         """)
         close_button.clicked.connect(self.close)
-        #close_button.move(675, 10)
         banner_layout.addWidget(close_button, alignment=Qt.AlignRight)
         banner_layout.addStretch(1)
         
@@ -145,6 +155,7 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(openai_model_layout)
         
 # Add new layouts for other api comboboxes here and pattern after the OpenAI and Stretch Factor sections    
+
         # Create a vertical layout for the chat history and widgets below it
         chat_layout = QVBoxLayout()
         chat_layout.setContentsMargins(0, 0, 0, 0)
@@ -227,15 +238,17 @@ class MainWindow(QMainWindow):
         # Show/hide scroll bar when needed
         user_prompt.textChanged.connect(lambda: user_prompt_scroll_bar.setVisible(user_prompt_scroll_bar.maximum() > 0))
         main_layout.addWidget(user_prompt, alignment=Qt.AlignHCenter)
+        main_layout.addStretch(1)
         
         # Buttons
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 20, 0, 20)
-
+    
         # 'New' and 'Submit' Buttons
         new_button = CustomButton('New')
+        new_button.clicked.connect(lambda: chat_history.clear())
         submit_button = CustomButton('Submit')
-
+        
         button_layout.addWidget(new_button, alignment=Qt.AlignCenter)
         button_layout.addWidget(submit_button, alignment=Qt.AlignCenter)
         main_layout.addLayout(button_layout)
@@ -248,6 +261,19 @@ class MainWindow(QMainWindow):
         
         # Set focus on user_prompt on application load
         user_prompt.setFocus()
+    
+    def conversation():
+        completion = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Hello, my friend! How are you today?"
+                }    
+            ]
+        )
+        
+        print(completion.choices[0].message)
     
     def clear_file_path_box(self):
         self.file_path_box.clear()    
@@ -283,19 +309,6 @@ class MainWindow(QMainWindow):
 
     def toggle_maximize(self):
         pass
-
-# OpenAI API Configuration #################################################################################################################################################
-myOpenAIKey = os.environ.get("OPENAI_API_KEY")
-myOpenAIOrg = os.environ.get("OPENAI_API_ORG")
-
-if myOpenAIKey is None:
-   raise ValueError("OPENAI_API_KEY is not set in environment variables.")
-else: 
-   openai.api_key = myOpenAIKey
-   openai.organization = myOpenAIOrg
-# END OpenAI API Configuration #############################################################################################################################################   
-   
-   
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
