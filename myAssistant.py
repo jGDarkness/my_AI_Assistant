@@ -3,9 +3,8 @@ import openai
 import os
 from PIL import Image
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, QScrollBar)
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QColor, QPainter, QFont, QFontMetrics, QIcon, QBrush, QPainterPath
-from PyQt5.QtCore import QPoint, QRectF
+from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF)
+from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
 import sys
 
 class CustomButton(QPushButton):
