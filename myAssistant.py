@@ -1,13 +1,14 @@
 import openai
 import os
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, QScrollBar)
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, QScrollBar, QDialog)
 from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF)
 from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
 import sys
 from transformers import GPT2Tokenizer
 
 # OpenAI API Configuration #################################################################################################################################################
-myOpenAIKey = os.environ.get("OPENAI_API_KEY") # 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
+
+myOpenAIKey = os.environ.get("OPENAI_API_KEY") 
 myOpenAIOrg = os.environ.get("OPENAI_API_ORG")
 
 if myOpenAIKey is None:
@@ -15,13 +16,15 @@ if myOpenAIKey is None:
 else: 
    openai.api_key = myOpenAIKey
    openai.organization = myOpenAIOrg
+
 # END OpenAI API Configuration #############################################################################################################################################   
 
+# Define a class to standardize a custom button style for the app.
 class CustomButton(QPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self.setFixedHeight(40)
-        self.setFixedWidth(100)  # Set the desired button width here
+        self.setFixedHeight(40)  # Set the desired button height
+        self.setFixedWidth(100)  # Set the desired button width
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -31,28 +34,26 @@ class CustomButton(QPushButton):
 
         rect = QRectF(0, 0, self.width(), self.height())
         path = QPainterPath()
+        
         path.addRoundedRect(rect, self.height() / 2, self.height() / 2)
+        
         painter.drawPath(path)
-
         painter.setPen(QColor(255, 255, 255))
         painter.setFont(QFont("Arial Rounded MT Bold", 16))
         painter.drawText(rect, Qt.AlignCenter, self.text())
 
+# Define a class to contain the Main Window for the app.
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        # Self
         self.setWindowTitle('My AI Assistant')
         self.setFixedSize(QSize(700, 950))
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_LayoutOnEntireRect)
         self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-
-        
-        # Grab Mouse click to drag non-maximized window to new position on screen
         self.mouse_pressed = False
-        self.mouse_position = QPoint()
+        self.mouse_position = QPoint() # Get's the mouse position when the user clicks to drag the app around the screen.
         
         # Set Global Font
         font = QFont('Arial Rounded MT', 13)
@@ -130,7 +131,6 @@ class MainWindow(QMainWindow):
         close_button.clicked.connect(self.close)
         banner_layout.addWidget(close_button, alignment=Qt.AlignRight)
         banner_layout.addStretch(1)
-        
         main_layout.addWidget(banner, alignment=Qt.AlignTop)
         
         # OpenAI Model Label and Combobox
@@ -144,16 +144,13 @@ class MainWindow(QMainWindow):
         # OpenAI Models for which the API requests have been configured in this application.
         combo_box = QComboBox()
         combo_box.addItems(['gpt-3.5-turbo'])
-           # Currently, 'text-davinci-003' is the only API request in progress. STATUS: PENDING
         combo_box.setCurrentText('gpt-3.5-turbo')
         combo_box.setFixedWidth(165)
         openai_model_layout.addWidget(combo_box, alignment=Qt.AlignLeft)
-        
-        # Add a stretch factor to push the widgets to the left
         openai_model_layout.addStretch()
         main_layout.addLayout(openai_model_layout)
         
-# Add new layouts for other api comboboxes here and pattern after the OpenAI and Stretch Factor sections    
+        # Add new layouts for other api comboboxes here and pattern after the OpenAI and Stretch Factor sections    
 
         # Create a vertical layout for the chat history and widgets below it
         self.chat_layout = QVBoxLayout()
@@ -165,7 +162,7 @@ class MainWindow(QMainWindow):
         # Chat history
         self.chat_history = QTextEdit()
         self.chat_history.setReadOnly(True)
-        self.chat_history.setFixedSize(self.width() - 40, 505)
+        self.chat_history.setFixedSize(self.width() - 40, 425)
         self.chat_history.setContentsMargins(10, 20, 20, 20)
         self.chat_history.setStyleSheet("""
             QTextEdit {
@@ -181,7 +178,6 @@ class MainWindow(QMainWindow):
 
         # Show/hide scroll bar when needed
         self.chat_history.textChanged.connect(lambda: chat_scroll_bar.setVisible(chat_scroll_bar.maximum() > 0))
-
         chat_history_layout.addWidget(self.chat_history)
 
         # Chat Token Counter
@@ -199,7 +195,6 @@ class MainWindow(QMainWindow):
 
         chat_history_container = QWidget()
         chat_history_container.setLayout(chat_history_layout)
-
         main_layout.addWidget(chat_history_container, alignment=Qt.AlignHCenter | Qt.AlignTop)
         main_layout.addStretch(1)
 
@@ -220,7 +215,6 @@ class MainWindow(QMainWindow):
             padding: 5px;
             }
         """)
-
         file_selector_layout.addWidget(self.file_path_box, stretch=2)
 
         # Clear button to clear the file_path_box
@@ -232,7 +226,6 @@ class MainWindow(QMainWindow):
         browse_button = CustomButton('Browse')
         browse_button.clicked.connect(self.on_browse_button_clicked)
         file_selector_layout.addWidget(browse_button, alignment=Qt.AlignCenter)
-
         main_layout.addLayout(file_selector_layout)
         
         # Add User Prompt Layout
@@ -250,15 +243,10 @@ class MainWindow(QMainWindow):
             }
         """)
         self.user_prompt.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        
-        # Add vertical scroll bar to user_prompt
         user_prompt_scroll_bar = QScrollBar(Qt.Vertical, self)
         self.user_prompt.setVerticalScrollBar(user_prompt_scroll_bar)
         user_prompt_scroll_bar.hide()
-
-        # Show/hide scroll bar when needed
         self.user_prompt.textChanged.connect(lambda: user_prompt_scroll_bar.setVisible(user_prompt_scroll_bar.maximum() > 0))
-
         user_prompt_layout.addWidget(self.user_prompt, alignment=Qt.AlignHCenter)
 
         # Add a label to display token count in user prompt
@@ -279,13 +267,19 @@ class MainWindow(QMainWindow):
         button_layout.setContentsMargins(0, 20, 0, 20)
     
         # 'New' and 'Submit' Buttons
-        
         new_button = CustomButton('New')
-        
+        new_button.clicked.connect(lambda: self.on_new_button_clicked())
+# Add animated progress icon (GIF file) to the left of the submit_button
+#        self.progress_icon_label = QLabel(self)
+#        self.progress_icon_movie = QMovie("images\loading.gif")  # Change this to the path of your GIF file
+#        self.progress_icon_label.setBaseSize(10, 10)
+#        self.progress_icon_label.setMovie(self.progress_icon_movie)
+#        self.progress_icon_label.hide()  # Hide the progress icon initially      
         submit_button = CustomButton('Submit')
         submit_button.clicked.connect(self.submit_prompt)  # Connect the submit_prompt method
         
         button_layout.addWidget(new_button, alignment=Qt.AlignCenter)
+#        button_layout.addWidget(self.progress_icon_label, alignment=Qt.AlignCenter)
         button_layout.addWidget(submit_button, alignment=Qt.AlignCenter)
         main_layout.addLayout(button_layout)
         
@@ -297,53 +291,117 @@ class MainWindow(QMainWindow):
         
         # Set focus on user_prompt on application load
         self.user_prompt.setFocus()
-        
+    
+    def on_new_button_clicked(self):
+        # Create a confirmation dialog
+        confirm_dialog = QDialog(self)
+        confirm_dialog.setWindowTitle("Start New Conversation")
+        confirm_dialog.setFixedSize(400, 150)
+
+        # Create a layout for the dialog
+        dialog_layout = QVBoxLayout()
+
+        # Create a label for the confirmation message
+        confirm_label = QLabel("Are you sure you want to start a \nnew conversation? You will lose all \ncontext of the current conversation.")
+        confirm_label.setAlignment(Qt.AlignCenter)
+        dialog_layout.addWidget(confirm_label)
+        # Create a layout for the buttons
+        button_layout = QHBoxLayout()
+
+        # Create the 'Yes' button and handle its click event
+        yes_button = CustomButton('Yes')
+        yes_button.clicked.connect(lambda: self.start_new_conversation(confirm_dialog))
+        button_layout.addWidget(yes_button, alignment=Qt.AlignCenter)
+
+        # Create the 'No' button and handle its click event
+        no_button = CustomButton('No')
+        no_button.clicked.connect(confirm_dialog.close)
+        button_layout.addWidget(no_button, alignment=Qt.AlignCenter)
+
+        # Add the button layout to the dialog layout
+        dialog_layout.addLayout(button_layout)
+
+        # Set the dialog layout
+        confirm_dialog.setLayout(dialog_layout)
+
+        # Show the dialog
+        confirm_dialog.exec_()
+    
+    def start_new_conversation(self, dialog):
+        # Clear the contents of chat_history and user_prompt
+        self.chat_history.clear()
+        self.user_prompt.clear()
+
+        # Reset the message history (if needed, depends on how you manage message history)
+        self.messages = []
+
+        # Inform the user only once per session if not already informed
+        if hasattr(self, "truncation_warning_given"):
+            del self.truncation_warning_given
+
+        # Close the confirmation dialog
+        dialog.close()
+        pass 
+    
     def submit_prompt(self):
+#        self.progress_icon_label.show()
+#        self.progress_icon_movie.start()
+        self.api_call_with_animation()
+    
+    def api_call_with_animation(self):                      
         # Get the conversation history and user's prompt
         conversation_history = self.chat_history.toPlainText()
         user_prompt = self.user_prompt.toPlainText()
         
         # Create a list to store messages
         messages = []
+
         # Split the conversation history into lines and create messages
         for line in conversation_history.split('\n'):
             if line.startswith('User: '):
                 messages.append({"role": "user", "content": line[6:]})
             elif line.startswith('Assistant: '):
                 messages.append({"role": "assistant", "content": line[12:]})
+
         # Append user's prompt to the messages
         messages.append({"role": "user", "content": user_prompt})
         
         # Calculate total token count
         token_count = sum(len(self.tokenizer.encode(msg["content"])) for msg in messages)
-        # Ensure the total token count doesn't exceed 4096 tokens
-        if token_count > 4096:
+
+        # Ensure the total token count doesn't exceed 1024 tokens
+        if token_count > 1024:
             # Truncate messages to fit within the 4096-token limit
-            while token_count > 4096 and len(messages) > 1:
+            while token_count > 1024 and len(messages) > 1:
                 token_count -= len(self.tokenizer.encode(messages.pop(0)["content"]))
             # Inform the user only once per session if not already informed
             if not hasattr(self, "truncation_warning_given"):
-                self.chat_history.append("The conversation has now exceeded 4,096 tokens. The oldest messages are being truncated as that limit is reached again.")
+                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.")
                 self.truncation_warning_given = True
         
-        # Check if user's individual prompt exceeds 4096 tokens
-        if len(self.tokenizer.encode(user_prompt)) > 4096:
-            self.chat_history.append("Your individual prompt exceeds 4,096 tokens. Please enter a shorter prompt.")
+        # Check if user's individual prompt exceeds 1024 tokens
+        if len(self.tokenizer.encode(user_prompt)) > 1024:
+            self.chat_history.append("Your individual prompt exceeds 1,024 tokens. Please enter a shorter prompt.")
             return
         
         try:
             # Call OpenAI API to get model response
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",  # Use the correct engine name for GPT-3.5 Turbo
-                messages=messages  # Pass the messages list as input
+                messages=messages,  # Pass the messages list as input
+                max_tokens=1024
             )
             # Append the model's response to the chat history
             assistant_response = response["choices"][0]["message"]["content"]
             self.chat_history.append(f"Assistant: {assistant_response}")
+
+            # Clear the user_prompt after successful message submission
+            self.user_prompt.clear()
+            
         except openai.error.OpenAIError as e:
             # Display the error message in the chat_history
             self.chat_history.append(f"Error: {str(e)}")
-    
+ 
     def update_chat_token_count(self):
         text = self.chat_history.toPlainText()
         token_count = len(self.tokenizer.encode(text))
