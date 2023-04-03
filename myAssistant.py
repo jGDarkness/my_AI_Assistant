@@ -1,6 +1,5 @@
 import openai
 import os
-from PIL import Image
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, QScrollBar)
 from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF)
 from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
@@ -8,7 +7,7 @@ import sys
 from transformers import GPT2Tokenizer
 
 # OpenAI API Configuration #################################################################################################################################################
-myOpenAIKey = os.environ.get("OPENAI_API_KEY")
+myOpenAIKey = os.environ.get("OPENAI_API_KEY") # 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
 myOpenAIOrg = os.environ.get("OPENAI_API_ORG")
 
 if myOpenAIKey is None:
@@ -144,9 +143,9 @@ class MainWindow(QMainWindow):
         
         # OpenAI Models for which the API requests have been configured in this application.
         combo_box = QComboBox()
-        combo_box.addItems(['text-davinci-003'])
+        combo_box.addItems(['gpt-3.5-turbo'])
            # Currently, 'text-davinci-003' is the only API request in progress. STATUS: PENDING
-        combo_box.setCurrentText('text-davinci-003')
+        combo_box.setCurrentText('gpt-3.5-turbo')
         combo_box.setFixedWidth(165)
         openai_model_layout.addWidget(combo_box, alignment=Qt.AlignLeft)
         
@@ -191,7 +190,12 @@ class MainWindow(QMainWindow):
         self.chat_token_count_label.setStyleSheet("color: grey; font-size: 10px;")
         self.chat_history.textChanged.connect(self.update_chat_token_count)
 
-        chat_history_layout.addWidget(self.chat_token_count_label, alignment=Qt.AlignBottom | Qt.AlignRight)
+        # Create QHBoxLayout to hold the chat_token_count_label and align it to the right
+        chat_token_count_layout = QHBoxLayout()
+        chat_token_count_layout.addStretch(1)  # Stretch to push label to the right
+        chat_token_count_layout.addWidget(self.chat_token_count_label, alignment=Qt.AlignRight)
+
+        chat_history_layout.addLayout(chat_token_count_layout)
 
         chat_history_container = QWidget()
         chat_history_container.setLayout(chat_history_layout)
@@ -279,6 +283,7 @@ class MainWindow(QMainWindow):
         new_button = CustomButton('New')
         
         submit_button = CustomButton('Submit')
+        submit_button.clicked.connect(self.submit_prompt)  # Connect the submit_prompt method
         
         button_layout.addWidget(new_button, alignment=Qt.AlignCenter)
         button_layout.addWidget(submit_button, alignment=Qt.AlignCenter)
@@ -292,6 +297,52 @@ class MainWindow(QMainWindow):
         
         # Set focus on user_prompt on application load
         self.user_prompt.setFocus()
+        
+    def submit_prompt(self):
+        # Get the conversation history and user's prompt
+        conversation_history = self.chat_history.toPlainText()
+        user_prompt = self.user_prompt.toPlainText()
+        
+        # Create a list to store messages
+        messages = []
+        # Split the conversation history into lines and create messages
+        for line in conversation_history.split('\n'):
+            if line.startswith('User: '):
+                messages.append({"role": "user", "content": line[6:]})
+            elif line.startswith('Assistant: '):
+                messages.append({"role": "assistant", "content": line[12:]})
+        # Append user's prompt to the messages
+        messages.append({"role": "user", "content": user_prompt})
+        
+        # Calculate total token count
+        token_count = sum(len(self.tokenizer.encode(msg["content"])) for msg in messages)
+        # Ensure the total token count doesn't exceed 4096 tokens
+        if token_count > 4096:
+            # Truncate messages to fit within the 4096-token limit
+            while token_count > 4096 and len(messages) > 1:
+                token_count -= len(self.tokenizer.encode(messages.pop(0)["content"]))
+            # Inform the user only once per session if not already informed
+            if not hasattr(self, "truncation_warning_given"):
+                self.chat_history.append("The conversation has now exceeded 4,096 tokens. The oldest messages are being truncated as that limit is reached again.")
+                self.truncation_warning_given = True
+        
+        # Check if user's individual prompt exceeds 4096 tokens
+        if len(self.tokenizer.encode(user_prompt)) > 4096:
+            self.chat_history.append("Your individual prompt exceeds 4,096 tokens. Please enter a shorter prompt.")
+            return
+        
+        try:
+            # Call OpenAI API to get model response
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",  # Use the correct engine name for GPT-3.5 Turbo
+                messages=messages  # Pass the messages list as input
+            )
+            # Append the model's response to the chat history
+            assistant_response = response["choices"][0]["message"]["content"]
+            self.chat_history.append(f"Assistant: {assistant_response}")
+        except openai.error.OpenAIError as e:
+            # Display the error message in the chat_history
+            self.chat_history.append(f"Error: {str(e)}")
     
     def update_chat_token_count(self):
         text = self.chat_history.toPlainText()

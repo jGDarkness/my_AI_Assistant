@@ -22,7 +22,7 @@ def conversation(prompt, history):
 print('\033[31m' + '\n' + "New Completion Established." + '\n' + '\033[0m') 
 
 history = ""
-extraContext = 'context2.txt'
+extraContext = 'context.json'
 
 with open(extraContext, 'r') as file:
    context = file.read() 
