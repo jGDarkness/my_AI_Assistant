@@ -1,4 +1,3 @@
-import json
 import openai
 import os
 from PIL import Image
@@ -6,7 +5,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF)
 from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
 import sys
-#from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from transformers import GPT2Tokenizer
 
 # OpenAI API Configuration #################################################################################################################################################
 myOpenAIKey = os.environ.get("OPENAI_API_KEY")
@@ -49,6 +48,8 @@ class MainWindow(QMainWindow):
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_LayoutOnEntireRect)
+        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+
         
         # Grab Mouse click to drag non-maximized window to new position on screen
         self.mouse_pressed = False
@@ -99,9 +100,8 @@ class MainWindow(QMainWindow):
         """)
         minimize_button.clicked.connect(self.showMinimized)
         banner_layout.addWidget(minimize_button, alignment=Qt.AlignRight)
-        #minimize_button.move(635, 10)
 
-        # Banne Green 'Maximize' button
+        # Banner Green 'Maximize' button
         maximize_button = QPushButton("")
         maximize_button.setFixedSize(15, 15)
         maximize_button.setStyleSheet("""
@@ -157,15 +157,18 @@ class MainWindow(QMainWindow):
 # Add new layouts for other api comboboxes here and pattern after the OpenAI and Stretch Factor sections    
 
         # Create a vertical layout for the chat history and widgets below it
-        chat_layout = QVBoxLayout()
-        chat_layout.setContentsMargins(0, 0, 0, 0)
+        self.chat_layout = QVBoxLayout()
+        self.chat_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Chat History Layout
+        chat_history_layout = QVBoxLayout()
         
         # Chat history
-        chat_history = QTextEdit()
-        chat_history.setReadOnly(True)
-        chat_history.setFixedSize(self.width() - 40, 505)
-        chat_history.setContentsMargins(10, 20, 20, 20)
-        chat_history.setStyleSheet("""
+        self.chat_history = QTextEdit()
+        self.chat_history.setReadOnly(True)
+        self.chat_history.setFixedSize(self.width() - 40, 505)
+        self.chat_history.setContentsMargins(10, 20, 20, 20)
+        self.chat_history.setStyleSheet("""
             QTextEdit {
             background-color: #F1F3F5;
             border: 1px solid #C0C0C0;
@@ -174,17 +177,28 @@ class MainWindow(QMainWindow):
         """)
         # Add vertical scroll bar to user_prompt
         chat_scroll_bar = QScrollBar(Qt.Vertical, self)
-        chat_history.setVerticalScrollBar(chat_scroll_bar)
+        self.chat_history.setVerticalScrollBar(chat_scroll_bar)
         chat_scroll_bar.hide()
 
         # Show/hide scroll bar when needed
-        chat_history.textChanged.connect(lambda: chat_scroll_bar.setVisible(chat_scroll_bar.maximum() > 0))
-        
-        main_layout.addWidget(chat_history, alignment=Qt.AlignHCenter | Qt.AlignTop)
+        self.chat_history.textChanged.connect(lambda: chat_scroll_bar.setVisible(chat_scroll_bar.maximum() > 0))
+
+        chat_history_layout.addWidget(self.chat_history)
+
+        # Chat Token Counter
+        # Add a label to display token count in chat history
+        self.chat_token_count_label = QLabel()
+        self.chat_token_count_label.setStyleSheet("color: grey; font-size: 10px;")
+        self.chat_history.textChanged.connect(self.update_chat_token_count)
+
+        chat_history_layout.addWidget(self.chat_token_count_label, alignment=Qt.AlignBottom | Qt.AlignRight)
+
+        chat_history_container = QWidget()
+        chat_history_container.setLayout(chat_history_layout)
+
+        main_layout.addWidget(chat_history_container, alignment=Qt.AlignHCenter | Qt.AlignTop)
         main_layout.addStretch(1)
-        
-        # Additional Context File Selection
-                
+
         # File Selector
         file_selector_layout = QHBoxLayout()
         file_selector_layout.setContentsMargins(20, 20, 20, 20)
@@ -217,36 +231,53 @@ class MainWindow(QMainWindow):
 
         main_layout.addLayout(file_selector_layout)
         
+        # Add User Prompt Layout
+        user_prompt_layout = QVBoxLayout()
+        
         # User Prompt
-        user_prompt = QTextEdit()
-        user_prompt.setFixedSize(self.width() - 40, 150)
-        user_prompt.setContentsMargins(0, 20, 0, 0)
-        user_prompt.setStyleSheet("""
+        self.user_prompt = QTextEdit()
+        self.user_prompt.setFixedSize(self.width() - 40, 150)
+        self.user_prompt.setContentsMargins(0, 20, 0, 0)
+        self.user_prompt.setStyleSheet("""
             QTextEdit {
             background-color: #F4E0F4;
             border: 1px solid #C0C0C0;
             padding: 5px;
             }
         """)
-        user_prompt.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.user_prompt.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         
         # Add vertical scroll bar to user_prompt
         user_prompt_scroll_bar = QScrollBar(Qt.Vertical, self)
-        user_prompt.setVerticalScrollBar(user_prompt_scroll_bar)
+        self.user_prompt.setVerticalScrollBar(user_prompt_scroll_bar)
         user_prompt_scroll_bar.hide()
 
         # Show/hide scroll bar when needed
-        user_prompt.textChanged.connect(lambda: user_prompt_scroll_bar.setVisible(user_prompt_scroll_bar.maximum() > 0))
-        main_layout.addWidget(user_prompt, alignment=Qt.AlignHCenter)
-        main_layout.addStretch(1)
+        self.user_prompt.textChanged.connect(lambda: user_prompt_scroll_bar.setVisible(user_prompt_scroll_bar.maximum() > 0))
+
+        user_prompt_layout.addWidget(self.user_prompt, alignment=Qt.AlignHCenter)
+
+        # Add a label to display token count in user prompt
+        self.user_prompt_token_count_label = QLabel()
+        self.user_prompt_token_count_label.setStyleSheet("color: grey; font-size: 10px;")
+        user_prompt_layout.addWidget(self.user_prompt_token_count_label, alignment=Qt.AlignRight)
+        user_prompt_layout.setAlignment(self.user_prompt_token_count_label, Qt.AlignRight)
+        self.user_prompt.textChanged.connect(self.update_user_prompt_token_count)
         
+        user_prompt_container = QWidget()
+        user_prompt_container.setLayout(user_prompt_layout)
+        
+        main_layout.addWidget(user_prompt_container, alignment=Qt.AlignHCenter)
+        main_layout.addStretch(1)
+
         # Buttons
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 20, 0, 20)
     
         # 'New' and 'Submit' Buttons
+        
         new_button = CustomButton('New')
-        new_button.clicked.connect(lambda: chat_history.clear())
+        
         submit_button = CustomButton('Submit')
         
         button_layout.addWidget(new_button, alignment=Qt.AlignCenter)
@@ -260,21 +291,18 @@ class MainWindow(QMainWindow):
         central_widget.setContentsMargins(0, 0, 0, 0)
         
         # Set focus on user_prompt on application load
-        user_prompt.setFocus()
+        self.user_prompt.setFocus()
     
-    def conversation():
-        completion = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "user",
-                    "content": "Hello, my friend! How are you today?"
-                }    
-            ]
-        )
+    def update_chat_token_count(self):
+        text = self.chat_history.toPlainText()
+        token_count = len(self.tokenizer.encode(text))
+        self.chat_token_count_label.setText(f"Tokens: {token_count}")
+
+    def update_user_prompt_token_count(self):
+        text = self.user_prompt.toPlainText()
+        token_count = len(self.tokenizer.encode(text))
+        self.user_prompt_token_count_label.setText(f"Tokens: {token_count}")
         
-        print(completion.choices[0].message)
-    
     def clear_file_path_box(self):
         self.file_path_box.clear()    
 
