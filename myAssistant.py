@@ -1,3 +1,4 @@
+from datetime import datetime
 import openai
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, QScrollBar, QDialog)
@@ -269,17 +270,11 @@ class MainWindow(QMainWindow):
         # 'New' and 'Submit' Buttons
         new_button = CustomButton('New')
         new_button.clicked.connect(lambda: self.on_new_button_clicked())
-# Add animated progress icon (GIF file) to the left of the submit_button
-#        self.progress_icon_label = QLabel(self)
-#        self.progress_icon_movie = QMovie("images\loading.gif")  # Change this to the path of your GIF file
-#        self.progress_icon_label.setBaseSize(10, 10)
-#        self.progress_icon_label.setMovie(self.progress_icon_movie)
-#        self.progress_icon_label.hide()  # Hide the progress icon initially      
+        
         submit_button = CustomButton('Submit')
         submit_button.clicked.connect(self.submit_prompt)  # Connect the submit_prompt method
         
         button_layout.addWidget(new_button, alignment=Qt.AlignCenter)
-#        button_layout.addWidget(self.progress_icon_label, alignment=Qt.AlignCenter)
         button_layout.addWidget(submit_button, alignment=Qt.AlignCenter)
         main_layout.addLayout(button_layout)
         
@@ -326,6 +321,11 @@ class MainWindow(QMainWindow):
 
         # Show the dialog
         confirm_dialog.exec_()
+        
+    def get_timestamp(self):
+        # Get the current date/time
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return timestamp
     
     def start_new_conversation(self, dialog):
         # Clear the contents of chat_history and user_prompt
@@ -344,11 +344,42 @@ class MainWindow(QMainWindow):
         pass 
     
     def submit_prompt(self):
-#        self.progress_icon_label.show()
-#        self.progress_icon_movie.start()
         self.api_call_with_animation()
     
-    def api_call_with_animation(self):                      
+    def api_call_with_animation(self):
+        
+        # Style the timestamp to reduce size and not be so obtrusive in the conversation.
+        timestamp_style = """
+            <span style="
+                font-size: 8pt;     /* Bring Font Size Down */
+                color: #808080;     /* Light grey color */
+            ">
+        """
+        
+        user_style = """
+            <span style="
+                font-size: 10pt;     /* Bring Font Size Down */
+                font-weight: bold;
+                color: #800080;     /* Light grey color */
+            ">
+        """
+        
+        assistant_style = """
+            <span style="
+                font-size: 10pt;     /* Bring Font Size Down */
+                font-weight: bold;
+                color: black;        /* black color */
+            ">
+        """
+        
+        text_style = """
+            <span style="
+                font-size: 11pt;     /* Bring Font Size Down */
+                font-weight: normal;
+                color: black;        /* black color */
+            ">
+        """
+        
         # Get the conversation history and user's prompt
         conversation_history = self.chat_history.toPlainText()
         user_prompt = self.user_prompt.toPlainText()
@@ -376,16 +407,21 @@ class MainWindow(QMainWindow):
                 token_count -= len(self.tokenizer.encode(messages.pop(0)["content"]))
             # Inform the user only once per session if not already informed
             if not hasattr(self, "truncation_warning_given"):
-                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.")
+                timestamp = self.get_timestamp()
+                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.<br>     {timestamp_style}[{timestamp}]<br>")
                 self.truncation_warning_given = True
         
         # Check if user's individual prompt exceeds 1024 tokens
         if len(self.tokenizer.encode(user_prompt)) > 1024:
-            self.chat_history.append("Your individual prompt exceeds 1,024 tokens. Please enter a shorter prompt.")
+            timestamp = self.get_timestamp()
+            self.chat_history.append("Your individual prompt exceeds 1,024 tokens. Please enter a shorter prompt.<br>     {timestamp_style}[{timestamp}]<br>")
             return
         
         try:
+            timestamp = self.get_timestamp()
+            self.chat_history.append(f"{user_style}User: </span>{text_style}{user_prompt}</span><br>     {timestamp_style}[{timestamp}]<br>")
             # Call OpenAI API to get model response
+
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",  # Use the correct engine name for GPT-3.5 Turbo
                 messages=messages,  # Pass the messages list as input
@@ -393,14 +429,15 @@ class MainWindow(QMainWindow):
             )
             # Append the model's response to the chat history
             assistant_response = response["choices"][0]["message"]["content"]
-            self.chat_history.append(f"Assistant: {assistant_response}")
+            timestamp = self.get_timestamp()
+            self.chat_history.append(f"{assistant_style}Assistant: </span>{text_style}{assistant_response}</span><br>     {timestamp_style}[{timestamp}]<br>")
 
-            # Clear the user_prompt after successful message submission
             self.user_prompt.clear()
             
         except openai.error.OpenAIError as e:
             # Display the error message in the chat_history
-            self.chat_history.append(f"Error: {str(e)}")
+            timestamp = self.get_timestamp()
+            self.chat_history.append(f"Error: {str(e)}<br>     {timestamp_style}[{timestamp}]<br>")
  
     def update_chat_token_count(self):
         text = self.chat_history.toPlainText()
