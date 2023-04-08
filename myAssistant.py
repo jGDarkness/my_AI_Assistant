@@ -1,9 +1,13 @@
 from datetime import datetime
 import openai
 import os
+from pygments import highlight
+from pygments.lexers import guess_lexer, TextLexer
+from pygments.formatters import HtmlFormatter
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, QScrollBar, QDialog)
 from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF)
 from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
+import re
 import sys
 from transformers import GPT2Tokenizer
 
@@ -346,6 +350,25 @@ class MainWindow(QMainWindow):
         dialog.close()
         pass 
     
+    def format_code_snippets(self, response):
+        # Define a regular expression pattern to match code snippets
+        code_pattern = re.compile(r'```(.*?)```', re.DOTALL)
+        
+        # Define a function to format and highlight code snippets
+        def replacer(match):
+            code = match.group(1).strip()
+            try:
+                lexer = guess_lexer(code)
+            except:
+                lexer = TextLexer()
+            formatter = HtmlFormatter()
+            highlighted_code = highlight(code, lexer, formatter)
+            return highlighted_code
+        
+        # Use the replacer function to replace code snippets with formatted ones
+        formatted_response = code_pattern.sub(replacer, response)
+        return formatted_response
+    
     def submit_prompt(self):        
         # Check the value of self.combo_box and call the matching function
         selected_model = self.combo_box.currentText()
@@ -437,8 +460,9 @@ class MainWindow(QMainWindow):
             )
             # Append the model's response to the chat history
             assistant_response = response["choices"][0]["message"]["content"]
+            formatted_response = self.format_code_snippets(assistant_response)
             timestamp = self.get_timestamp()
-            self.chat_history.append(f"{assistant_style}Assistant: </span>{text_style}{assistant_response}</span><br>     {timestamp_style}[{timestamp}]<br>")
+            self.chat_history.append(f"{assistant_style}Assistant: </span>{text_style}{formatted_response}</span><br>     {timestamp_style}[{timestamp}]<br>")
 
             self.user_prompt.clear()
             
@@ -530,8 +554,9 @@ class MainWindow(QMainWindow):
             )
             # Append the model's response to the chat history
             assistant_response = response["choices"][0]["message"]["content"]
+            formatted_response = self.format_code_snippets(assistant_response)
             timestamp = self.get_timestamp()
-            self.chat_history.append(f"{assistant_style}Assistant: </span>{text_style}{assistant_response}</span><br>     {timestamp_style}[{timestamp}]<br>")
+            self.chat_history.append(f"{assistant_style}Assistant: </span>{text_style}{formatted_response}</span><br>     {timestamp_style}[{timestamp}]<br>")
 
             self.user_prompt.clear()
             
