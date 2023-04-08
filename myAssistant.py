@@ -7,7 +7,7 @@ from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
 import sys
 from transformers import GPT2Tokenizer
 
-# OpenAI API Configuration #################################################################################################################################################
+##### OpenAI API Configuration #############################################################################################################################################
 
 myOpenAIKey = os.environ.get("OPENAI_API_KEY") 
 myOpenAIOrg = os.environ.get("OPENAI_API_ORG")
@@ -18,9 +18,9 @@ else:
    openai.api_key = myOpenAIKey
    openai.organization = myOpenAIOrg
 
-# END OpenAI API Configuration #############################################################################################################################################   
+##### END OpenAI API Configuration #########################################################################################################################################   
 
-# Define a class to standardize a custom button style for the app.
+### class CustomButton creates a custom button style that can be used throughout the application.
 class CustomButton(QPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
@@ -30,7 +30,7 @@ class CustomButton(QPushButton):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QColor(128, 0, 128))
+        painter.setBrush(QColor(128, 0, 128))   # set the RGB value of the purple used in the app.
         painter.setPen(Qt.NoPen)
 
         rect = QRectF(0, 0, self.width(), self.height())
@@ -39,16 +39,16 @@ class CustomButton(QPushButton):
         path.addRoundedRect(rect, self.height() / 2, self.height() / 2)
         
         painter.drawPath(path)
-        painter.setPen(QColor(255, 255, 255))
-        painter.setFont(QFont("Arial Rounded MT Bold", 16))
+        painter.setPen(QColor(255, 255, 255))   # set the font color to white
+        painter.setFont(QFont("Arial Rounded MT Bold", 16)) # set the font and size
         painter.drawText(rect, Qt.AlignCenter, self.text())
 
-# Define a class to contain the Main Window for the app.
+### class MainWindow creates the main window of the application and houses the layouts and widgets.
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('My AI Assistant')
-        self.setFixedSize(QSize(700, 950))
+        self.setFixedSize(QSize(800, 1150))
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_LayoutOnEntireRect)
@@ -64,8 +64,10 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0,0,0,0)
         
-        # Banner
+        # Banner Widget
         banner = QWidget()
+        
+        # Banner Layout
         banner_label = QLabel("My AI Assistant", banner)
         banner_layout = QHBoxLayout()        
 
@@ -143,11 +145,12 @@ class MainWindow(QMainWindow):
         openai_model_layout.addWidget(openai_model_label, alignment=Qt.AlignLeft | Qt.AlignTop)
         
         # OpenAI Models for which the API requests have been configured in this application.
-        combo_box = QComboBox()
-        combo_box.addItems(['gpt-3.5-turbo'])
-        combo_box.setCurrentText('gpt-3.5-turbo')
-        combo_box.setFixedWidth(165)
-        openai_model_layout.addWidget(combo_box, alignment=Qt.AlignLeft)
+        self.combo_box = QComboBox()
+        self.combo_box.addItems(['gpt-3.5-turbo'])
+#        self.combo_box.addItems(['gpt-4'])                                                                         # Commented out until gpt-4 is realeased from limited beta.
+        self.combo_box.setCurrentText('gpt-3.5-turbo')
+        self.combo_box.setFixedWidth(165)
+        openai_model_layout.addWidget(self.combo_box, alignment=Qt.AlignLeft)
         openai_model_layout.addStretch()
         main_layout.addLayout(openai_model_layout)
         
@@ -163,7 +166,7 @@ class MainWindow(QMainWindow):
         # Chat history
         self.chat_history = QTextEdit()
         self.chat_history.setReadOnly(True)
-        self.chat_history.setFixedSize(self.width() - 40, 425)
+        self.chat_history.setFixedSize(self.width() - 40, 585)
         self.chat_history.setContentsMargins(10, 20, 20, 20)
         self.chat_history.setStyleSheet("""
             QTextEdit {
@@ -234,7 +237,7 @@ class MainWindow(QMainWindow):
         
         # User Prompt
         self.user_prompt = QTextEdit()
-        self.user_prompt.setFixedSize(self.width() - 40, 150)
+        self.user_prompt.setFixedSize(self.width() - 40, 200)
         self.user_prompt.setContentsMargins(0, 20, 0, 0)
         self.user_prompt.setStyleSheet("""
             QTextEdit {
@@ -343,10 +346,15 @@ class MainWindow(QMainWindow):
         dialog.close()
         pass 
     
-    def submit_prompt(self):
-        self.api_call_with_animation()
+    def submit_prompt(self):        
+        # Check the value of self.combo_box and call the matching function
+        selected_model = self.combo_box.currentText()
+        if selected_model == 'gpt-3.5-turbo':
+            self.gpt_3_5_turbo()
+        elif selected_model == 'gpt-4':
+            self.gpt_4()
     
-    def api_call_with_animation(self):
+    def gpt_3_5_turbo(self):
         
         # Style the timestamp to reduce size and not be so obtrusive in the conversation.
         timestamp_style = """
@@ -424,6 +432,99 @@ class MainWindow(QMainWindow):
 
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",  # Use the correct engine name for GPT-3.5 Turbo
+                messages=messages,  # Pass the messages list as input
+                max_tokens=1024
+            )
+            # Append the model's response to the chat history
+            assistant_response = response["choices"][0]["message"]["content"]
+            timestamp = self.get_timestamp()
+            self.chat_history.append(f"{assistant_style}Assistant: </span>{text_style}{assistant_response}</span><br>     {timestamp_style}[{timestamp}]<br>")
+
+            self.user_prompt.clear()
+            
+        except openai.error.OpenAIError as e:
+            # Display the error message in the chat_history
+            timestamp = self.get_timestamp()
+            self.chat_history.append(f"Error: {str(e)}<br>     {timestamp_style}[{timestamp}]<br>")
+ 
+    def gpt_4(self):
+        
+        # Style the timestamp to reduce size and not be so obtrusive in the conversation.
+        timestamp_style = """
+            <span style="
+                font-size: 8pt;     /* Bring Font Size Down */
+                color: #808080;     /* Light grey color */
+            ">
+        """
+        
+        user_style = """
+            <span style="
+                font-size: 10pt;     /* Bring Font Size Down */
+                font-weight: bold;
+                color: #800080;     /* Light grey color */
+            ">
+        """
+        
+        assistant_style = """
+            <span style="
+                font-size: 10pt;     /* Bring Font Size Down */
+                font-weight: bold;
+                color: black;        /* black color */
+            ">
+        """
+        
+        text_style = """
+            <span style="
+                font-size: 11pt;     /* Bring Font Size Down */
+                font-weight: normal;
+                color: black;        /* black color */
+            ">
+        """
+        
+        # Get the conversation history and user's prompt
+        code_history = self.chat_history.toPlainText()
+        user_prompt = self.user_prompt.toPlainText()
+        
+        # Create a list to store messages
+        messages = []
+
+        # Split the conversation history into lines and create messages
+        for line in code_history.split('\n'):
+            if line.startswith('User: '):
+                messages.append({"role": "user", "content": line[6:]})
+            elif line.startswith('Assistant: '):
+                messages.append({"role": "assistant", "content": line[12:]})
+
+        # Append user's prompt to the messages
+        messages.append({"role": "user", "content": user_prompt})
+        
+        # Calculate total token count
+        token_count = sum(len(self.tokenizer.encode(msg["content"])) for msg in messages)
+
+        # Ensure the total token count doesn't exceed 1024 tokens
+        if token_count > 1024:
+            # Truncate messages to fit within the 4096-token limit
+            while token_count > 1024 and len(messages) > 1:
+                token_count -= len(self.tokenizer.encode(messages.pop(0)["content"]))
+            # Inform the user only once per session if not already informed
+            if not hasattr(self, "truncation_warning_given"):
+                timestamp = self.get_timestamp()
+                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.<br>     {timestamp_style}[{timestamp}]<br>")
+                self.truncation_warning_given = True
+        
+        # Check if user's individual prompt exceeds 1024 tokens
+        if len(self.tokenizer.encode(user_prompt)) > 1024:
+            timestamp = self.get_timestamp()
+            self.chat_history.append("Your individual prompt exceeds 1,024 tokens. Please enter a shorter prompt.<br>     {timestamp_style}[{timestamp}]<br>")
+            return
+        
+        try:
+            timestamp = self.get_timestamp()
+            self.chat_history.append(f"{user_style}User: </span>{text_style}{user_prompt}</span><br>     {timestamp_style}[{timestamp}]<br>")
+            # Call OpenAI API to get model response
+
+            response = openai.ChatCompletion.create(
+                model="gpt-4",  # Use the correct engine name for gpt-4
                 messages=messages,  # Pass the messages list as input
                 max_tokens=1024
             )
