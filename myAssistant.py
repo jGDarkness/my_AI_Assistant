@@ -23,8 +23,8 @@ if myOpenAIKey is None:
 else: 
    openai.api_key = myOpenAIKey
    openai.organization = myOpenAIOrg
-
-
+   
+   
 
 # Class 'CustomButton' creates a custom button style that can be used throughout the application.
 class CustomButton(QPushButton):
@@ -52,27 +52,32 @@ class CustomButton(QPushButton):
         painter.drawText(rect, Qt.AlignCenter, self.text())
 
 
+
 # Class "MouseHandler" handles mouse events.
 class MouseHandler:
     def __init__(self):
         self.mouse_pressed = False
         self.mouse_position = QPoint()
 
+    @staticmethod
     def handle_mouse_press(self, event):
         if event.button() == Qt.LeftButton:
             self.mouse_pressed = True
             self.mouse_position = event.globalPos() - event.widget().pos()
             event.accept()
 
+    @staticmethod
     def handle_mouse_move(self, event, target_widget):
         if self.mouse_pressed and event.buttons() == Qt.LeftButton:
             target_widget.move(event.globalPos() - self.mouse_position)
             event.accept()
 
+    @staticmethod
     def handle_mouse_release(self, event):
         if event.button() == Qt.LeftButton:
             self.mouse_pressed = False
             event.accept()
+
 
 
 # Class 'MainWindow' creates the main window of the application and houses the layouts and widgets.
@@ -87,8 +92,8 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_LayoutOnEntireRect)
         
         # Setup the tokenizer for counting tokens in chat_history and user_prompt.
-        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        
+        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2") # This tokenizer is from Huggingface and may be out of date. It inflates the token count about 30%.
+    
         # Get's the mouse position when the user clicks to drag the app around the screen.
         self.mouse_pressed = False
         self.mouse_position = QPoint() 
@@ -168,10 +173,11 @@ class MainWindow(QMainWindow):
         
         # Chat history.
         self.chat_history = QTextEdit()
+        self.chat_history.setStyleSheet("background-color: lightgrey")
         self.chat_history.setReadOnly(True)
         self.chat_history.setFixedSize(self.width() - 40, 585)
         self.chat_history.setContentsMargins(10, 20, 20, 20)
-        self.set_widget_style(self.chat_history)
+        self.set_widget_style(self.chat_history, "lightgrey")
         
         # Add vertical scroll bar to user_prompt.
         chat_scroll_bar = QScrollBar(Qt.Vertical, self)
@@ -239,7 +245,7 @@ class MainWindow(QMainWindow):
         self.user_prompt = QTextEdit()
         self.user_prompt.setFixedSize(self.width() - 40, 200)
         self.user_prompt.setContentsMargins(0, 20, 0, 0)
-        self.set_widget_style(self.user_prompt)
+        self.set_widget_style(self.user_prompt, "#FFDFFF")
         self.user_prompt.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         user_prompt_scroll_bar = QScrollBar(Qt.Vertical, self)
         self.user_prompt.setVerticalScrollBar(user_prompt_scroll_bar)
@@ -346,13 +352,13 @@ class MainWindow(QMainWindow):
         # Show the dialog.
         confirm_dialog.exec_()
     
-    def set_widget_style(self, widget):
-        widget.setStyleSheet("""
-            QTextEdit {
-            background-color: #F4E0F4;
+    def set_widget_style(self, widget, bg_color):
+        widget.setStyleSheet(F"""
+            QTextEdit {{
+            background-color: {bg_color};
             border: 1px solid #C0C0C0;
             padding: 5px;
-            }
+            }}
         """)
         
     def get_timestamp(self):
@@ -422,20 +428,20 @@ class MainWindow(QMainWindow):
         token_count = sum(self.get_token_count(msg["content"]) for msg in messages)
 
         # Ensure the total token count doesn't exceed 1024 tokens.
-        if token_count > 1024:
+        if token_count > 4096:
             # Truncate messages to fit within the 4096-token limit.
-            while token_count > 1024 and len(messages) > 1:
+            while token_count > 4096 and len(messages) > 1:
                 token_count -= self.get_token_count(messages.pop(0)["content"])
             # Inform the user only once per session if not already informed
             if not hasattr(self, "truncation_warning_given"):
                 timestamp = self.get_timestamp()
-                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.<br>     {timestamp_style}[{timestamp}]<br>")
+                self.chat_history.append("The conversation has now exceeded 4,096 tokens. The oldest messages are being truncated as that limit is reached again.<br>     {timestamp_style}[{timestamp}]<br>")
                 self.truncation_warning_given = True
         
         # Check if user's individual prompt exceeds 1024 tokens.
-        if self.get_token_count(user_prompt) > 1024:
+        if self.get_token_count(user_prompt) > 2048:
             timestamp = self.get_timestamp()
-            self.chat_history.append("Your individual prompt exceeds 1,024 tokens. Please enter a shorter prompt.<br>     {timestamp_style}[{timestamp}]<br>")
+            self.chat_history.append("Your individual prompt exceeds 2,048 tokens. Please enter a shorter prompt.<br>     {timestamp_style}[{timestamp}]<br>")
             return
         
         try:
@@ -446,7 +452,11 @@ class MainWindow(QMainWindow):
             response = openai.ChatCompletion.create(
                 model=model_name,  
                 messages=messages,  
-                max_tokens=1024
+                max_tokens=256,
+                temperature=0.75,
+                n=1,
+                stream=False,
+                echo=False                
             )
             
             # Append the model's response to the chat history.
@@ -459,8 +469,10 @@ class MainWindow(QMainWindow):
             self.user_prompt.clear()
             
         except openai.error.OpenAIError as e:
-            # Display the error message in the chat_history.
-            self.append_to_chat_history("Error", str(e))
+            if "Token indices" in str(e):
+                self.append_to_chat_history("Error", "Maximum sequence length exceeded. Please enter a shorter input.")
+            else:
+                self.append_to_chat_history("Error", str(e))
 
     def append_to_chat_history(self, role, content, formatted_response=None):
         # Style the timestamp to reduce size and not be so obtrusive in the conversation.
@@ -546,6 +558,8 @@ class MainWindow(QMainWindow):
 
     def toggle_maximize(self):
         pass
+
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
