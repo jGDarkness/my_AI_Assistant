@@ -30,8 +30,8 @@ else:
 class CustomButton(QPushButton):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
-        self.setFixedHeight(40)  # Set the desired button height
-        self.setFixedWidth(100)  # Set the desired button width
+        self.setFixedHeight(36)  # Set the desired button height
+        self.setFixedWidth(90)  # Set the desired button width
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -48,7 +48,7 @@ class CustomButton(QPushButton):
         
         painter.drawPath(path)
         painter.setPen(QColor(255, 255, 255))   # set the font color to white
-        painter.setFont(QFont("Arial Rounded MT Bold", 16)) # set the font and size
+        painter.setFont(QFont("Arial Rounded MT Bold", 14)) # set the font and size
         painter.drawText(rect, Qt.AlignCenter, self.text())
 
 
@@ -92,7 +92,7 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_LayoutOnEntireRect)
         
         # Setup the tokenizer for counting tokens in chat_history and user_prompt.
-        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2") # This tokenizer is from Huggingface and may be out of date. It inflates the token count about 30%.
+        self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2") 
     
         # Get's the mouse position when the user clicks to drag the app around the screen.
         self.mouse_pressed = False
@@ -153,9 +153,10 @@ class MainWindow(QMainWindow):
         # OpenAI Models for which the API requests have been configured in this application.
         self.combo_box = QComboBox()
         self.combo_box.addItems(['gpt-3.5-turbo'])
-#        self.combo_box.addItems(['gpt-4'])                                                                         # Commented out until gpt-4 is realeased from limited beta.
+#        self.combo_box.addItems(['gpt-4'])         # Commented out until gpt-4 is realeased from limited beta.
         self.combo_box.setCurrentText('gpt-3.5-turbo')
         self.combo_box.setFixedWidth(165)
+        self.set_widget_style(self.combo_box, "#F0F0F0")
         
         openai_model_layout.addWidget(self.combo_box, alignment=Qt.AlignLeft)
         openai_model_layout.addStretch()
@@ -177,7 +178,7 @@ class MainWindow(QMainWindow):
         self.chat_history.setReadOnly(True)
         self.chat_history.setFixedSize(self.width() - 40, 585)
         self.chat_history.setContentsMargins(10, 20, 20, 20)
-        self.set_widget_style(self.chat_history, "lightgrey")
+        self.set_widget_style(self.chat_history, "#F0F0F0")
         
         # Add vertical scroll bar to user_prompt.
         chat_scroll_bar = QScrollBar(Qt.Vertical, self)
