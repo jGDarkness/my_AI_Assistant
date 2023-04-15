@@ -422,20 +422,18 @@ class MainWindow(QMainWindow):
         token_count = sum(self.get_token_count(msg["content"]) for msg in messages)
 
         # Ensure the total token count doesn't exceed 1024 tokens.
-        if token_count > 1024:
+        if token_count > 4000:
             # Truncate messages to fit within the 4096-token limit.
-            while token_count > 1024 and len(messages) > 1:
+            while token_count > 4000 and len(messages) > 1:
                 token_count -= self.get_token_count(messages.pop(0)["content"])
             # Inform the user only once per session if not already informed
             if not hasattr(self, "truncation_warning_given"):
-                timestamp = self.get_timestamp()
-                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.<br>     {timestamp_style}[{timestamp}]<br>")
+                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.<br><br>")
                 self.truncation_warning_given = True
         
         # Check if user's individual prompt exceeds 1024 tokens.
-        if self.get_token_count(user_prompt) > 1024:
-            timestamp = self.get_timestamp()
-            self.chat_history.append("Your individual prompt exceeds 1,024 tokens. Please enter a shorter prompt.<br>     {timestamp_style}[{timestamp}]<br>")
+        if self.get_token_count(user_prompt) > 1300:
+            self.chat_history.append("Your individual prompt exceeds an estimated 1,024 tokens. Please enter a shorter prompt.<br>     {timestamp_style}[{timestamp}]<br>")
             return
         
         try:
