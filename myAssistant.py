@@ -6,7 +6,7 @@ from pygments.lexers import guess_lexer, TextLexer
 from pygments.formatters import HtmlFormatter
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, 
                              QScrollBar, QDialog)
-from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF)
+from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF, QThread, pyqtSignal)
 from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
 import re
 import sys
@@ -38,7 +38,7 @@ class CustomButton(QPushButton):
         painter.setRenderHint(QPainter.Antialiasing)
             
         # Seth the RGB Value for Purple used throughout this app.
-        painter.setBrush(QColor(128, 0, 128))   
+        painter.setBrush(QColor(128, 0, 128))   # HEX: #800080
         painter.setPen(Qt.NoPen)
 
         rect = QRectF(0, 0, self.width(), self.height())
@@ -47,7 +47,7 @@ class CustomButton(QPushButton):
         path.addRoundedRect(rect, self.height() / 2, self.height() / 2)
         
         painter.drawPath(path)
-        painter.setPen(QColor(255, 255, 255))   # set the font color to white
+        painter.setPen(QColor(255, 255, 255))   # set the font color to white HED: #ffffff
         painter.setFont(QFont("Arial Rounded MT Bold", 16)) # set the font and size
         painter.drawText(rect, Qt.AlignCenter, self.text())
 
@@ -73,6 +73,7 @@ class MouseHandler:
         if event.button() == Qt.LeftButton:
             self.mouse_pressed = False
             event.accept()
+
 
 
 # Class 'MainWindow' creates the main window of the application and houses the layouts and widgets.
@@ -126,9 +127,9 @@ class MainWindow(QMainWindow):
         banner_layout.setContentsMargins(10, 0, 20, 0)
         banner_layout.addWidget(banner_label, alignment=Qt.AlignTop | Qt.AlignLeft)
         
-        minimize_button = self.create_button('#ffcc00', '#ffaa00', self.showMinimized)
-        maximize_button = self.create_button('#4cd964', '#2fd14d', self.toggle_maximize)
-        close_button = self.create_button('#ff5f57', '#ff3d3b', self.close)
+        minimize_button = self.create_button('#ffcc00', '#ffaa00', self.showMinimized) # RGB: 255, 204, 0 (Yellow)
+        maximize_button = self.create_button('#4cd964', '#2fd14d', self.toggle_maximize) # RGB: 76, 217, 99 (Green)
+        close_button = self.create_button('#ff5f57', '#ff3d3b', self.close) # RGB: 255, 95, 87 (Red)
         banner_layout.addWidget(minimize_button, alignment=Qt.AlignRight)
         banner_layout.addWidget(maximize_button, alignment=Qt.AlignRight)
         banner_layout.addWidget(close_button, alignment=Qt.AlignRight)       
@@ -148,8 +149,8 @@ class MainWindow(QMainWindow):
         # OpenAI Models for which the API requests have been configured in this application.
         self.combo_box = QComboBox()
         self.combo_box.addItems(['gpt-3.5-turbo'])
-#        self.combo_box.addItems(['gpt-4'])                                                                         # Commented out until gpt-4 is realeased from limited beta.
-        self.combo_box.setCurrentText('gpt-3.5-turbo')
+        self.combo_box.addItems(['gpt-4'])  
+        self.combo_box.setCurrentText('gpt-4')
         self.combo_box.setFixedWidth(165)
         
         openai_model_layout.addWidget(self.combo_box, alignment=Qt.AlignLeft)
@@ -346,11 +347,11 @@ class MainWindow(QMainWindow):
         # Show the dialog.
         confirm_dialog.exec_()
     
-    def set_widget_style(self, widget):
+    def set_widget_style(self, widget): # BG Color RGB: 244, 224, 244 (Light Purple); Border Color RGB: 192, 192, 192 (Light Gray)
         widget.setStyleSheet("""
             QTextEdit {
-            background-color: #F4E0F4;
-            border: 1px solid #C0C0C0;
+            background-color: #E8E8E8;
+            border: 1px solid #000000;
             padding: 5px;
             }
         """)
@@ -407,7 +408,18 @@ class MainWindow(QMainWindow):
         
         # Create a list to store messages.
         messages = []
-
+       
+        try:
+            contextFile = self.file_path_box.text()
+            with open(contextFile, 'r') as f:
+                context = f.read().splitlines()
+                context = [line.strip() for line in context]
+                context = str(context)
+            messages.append({"role": "user", "content": context})
+            self.file_path_box.clear()
+        except:
+            pass
+      
         # Split the conversation history into lines and create messages.
         for line in conversation_history.split('\n'):
             if line.startswith('User: '):
@@ -417,7 +429,7 @@ class MainWindow(QMainWindow):
 
         # Append user's prompt to the messages.
         messages.append({"role": "user", "content": user_prompt})
-        
+         
         # Token count check.
         token_count = sum(self.get_token_count(msg["content"]) for msg in messages)
 
@@ -428,12 +440,12 @@ class MainWindow(QMainWindow):
                 token_count -= self.get_token_count(messages.pop(0)["content"])
             # Inform the user only once per session if not already informed
             if not hasattr(self, "truncation_warning_given"):
-                self.chat_history.append("The conversation has now exceeded 1,024 tokens. The oldest messages are being truncated as that limit is reached again.<br><br>")
+                self.chat_history.append("If you are using gpt-3.5-turbo, your message history will now begin to truncate the oldes messages. gpt-4 is rougly half way there.<br><br>")
                 self.truncation_warning_given = True
         
         # Check if user's individual prompt exceeds 1024 tokens.
         if self.get_token_count(user_prompt) > 1300:
-            self.chat_history.append("Your individual prompt exceeds an estimated 1,024 tokens. Please enter a shorter prompt.<br>     {timestamp_style}[{timestamp}]<br>")
+            self.chat_history.append("Your individual prompt exceeds an estimated 1,024 tokens. Please enter a shorter prompt. Your message history is maintained to the token limit.<br>     {timestamp_style}[{timestamp}]<br>")
             return
         
         try:
@@ -518,6 +530,8 @@ class MainWindow(QMainWindow):
         file_path, _ = file_dialog.getOpenFileName(self, 'Open file', '', 'All Files (*.*)')
         if file_path:
             self.file_path_box.setText(file_path)
+    
+
                 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -525,7 +539,7 @@ class MainWindow(QMainWindow):
         painter.setBrush(QColor(255, 255, 255))
         painter.setPen(Qt.NoPen)
         painter.drawRoundedRect(0, 0, self.width(), self.height(), 20, 20)
-    
+        
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.mouse_pressed = True
