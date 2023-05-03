@@ -1,18 +1,19 @@
-from datetime import datetime
-import openai
 import os
-from pygments import highlight
-from pygments.lexers import guess_lexer, TextLexer
-from pygments.formatters import HtmlFormatter
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLineEdit, QPushButton, QWidget, QLabel, QFileDialog, 
-                             QScrollBar, QDialog)
-from PyQt5.QtCore import (Qt, QSize, QPoint, QRectF, QThread, pyqtSignal)
-from PyQt5.QtGui import (QColor, QPainter, QFont, QPainterPath)
 import re
 import sys
+from datetime import datetime
+
+import openai
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import TextLexer, guess_lexer
+from PyQt5.QtCore import QPoint, QRectF, QSize, Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QColor, QFont, QPainter, QPainterPath
+from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
+                             QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+                             QPushButton, QScrollBar, QTextEdit, QVBoxLayout,
+                             QWidget)
 from transformers import GPT2Tokenizer
-
-
 
 # OpenAI API Configuration
 myOpenAIKey = os.environ.get("OPENAI_API_KEY") 
