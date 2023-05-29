@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import sys
@@ -12,7 +13,7 @@ from PyQt5.QtGui import QColor, QFont, QPainter, QPainterPath
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog, QFileDialog,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow,
                              QPushButton, QScrollBar, QTextEdit, QVBoxLayout,
-                             QWidget)
+                             QWidget, QMessageBox)
 from transformers import GPT2Tokenizer
 
 # OpenAI API Configuration
@@ -26,6 +27,68 @@ else:
    openai.organization = myOpenAIOrg
 
 
+
+class myAssistantConfiguration():
+    def __init__(self):
+        self.config_path = 'config/config.json'
+    
+        ...  # rest of the class remains unchanged
+    def show_dialog(self, message):
+        app = QApplication([])
+        msg_box = QMessageBox()
+        msg_box.setText(message)
+        msg_box.exec()
+
+    def check_for_config_file(self):
+        config_path = 'config/config.json'
+        if os.path.exists(config_path):
+            return True
+        else:
+            os.makedirs('config')
+            with open(config_path, 'w') as config_file:
+                config_file.write("{}")
+            return True
+    
+    def check_for_required_settings(self):
+        with open('config/config.json') as config_file:
+            settings = json.load(config_file)
+        
+        if any(item['setting'] == 'working_directory' and item['content'] != '' for item in settings):
+            self.show_dialog("Please select a working directory for your AI Assistant.")
+            
+            folder_app = QApplication([])
+            selected_path = QFileDialog.getExistingDirectory(None, "Select working directory...")
+            config_data = {
+                "setting": "working_directory",
+                "content": selected_path
+            }
+            with open('config/config.json', 'r') as config_file:
+                orig_config_data = json.load(config_file)
+                orig_config_data.append(config_data)
+                
+            with open('config/config.json', 'w') as config_file:
+                json.dump(config_data, config_file)
+            return True
+        else:
+            return False
+            
+
+
+
+class CLI():
+    def generate_commands(self, prompt):
+        response = openai.Completion.create(
+            model="code-davinci-002",
+            prompt=f"{prompt}\n\nGenerate a syntactically correct command line expression:",
+            temperature=0.5,
+            max_tokens=100,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+    
+        return response.choices[0].text.strip()
+        
 
 # Class 'CustomButton' creates a custom button style that can be used throughout the application.
 class CustomButton(QPushButton):
@@ -561,6 +624,13 @@ class MainWindow(QMainWindow):
         pass
 
 if __name__ == '__main__':
+    assistant_config = myAssistantConfiguration()
+    config_exists = assistant_config.check_for_config_file()
+    print("CONFIG EXISTS: ", config_exists)
+    if config_exists == True:
+        required_settings_set = assistant_config.check_for_required_settings()
+        print("REQUIRED SETTINGS SET: ", required_settings_set)
+    
     app = QApplication(sys.argv)
     main_window = MainWindow()
     main_window.show()

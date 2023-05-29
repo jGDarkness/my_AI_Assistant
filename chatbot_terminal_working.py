@@ -22,13 +22,13 @@ def conversation(prompt, history):
 print('\033[31m' + '\n' + "New Completion Established." + '\n' + '\033[0m') 
 
 history = ""
-extraContext = 'context.json'
+'''extraContext = 'context.json'
 
 with open(extraContext, 'r') as file:
    context = file.read() 
    context.strip()  
    
-history += f"{context}" 
+history += f"{context}" '''
 
 while True:  
    userQuery = input('\033[1m' + 'User>> ' + '\033[0m') 
